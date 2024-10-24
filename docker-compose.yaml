@@ -1,0 +1,145 @@
+# file: docker-compose.yaml
+networks:
+  pg-cluster:
+
+services:
+  # ===================================================
+  # PostgreSQL Multi-Modal Database Cluster
+  # see: https://github.com/darth-veitcher/geolens
+  # ===================================================
+  postgres-master:
+    image: darthveitcher/postdata
+    container_name: postgres-master
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-geolens}
+    volumes:
+      - ${DATA_ROOT:-./data}/postgres/master-data:/var/lib/postgresql/data
+      - ${CONFIG_ROOT:-./services}/postgres/init_master.sh:/docker-entrypoint-initdb.d/init_master.sh  # Mount the hba script
+    networks:
+      - pg-cluster
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=5", "-c", "max_wal_senders=5"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  postgres-replica-1:
+    image: darthveitcher/postdata
+    container_name: postgres-replica-1
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-geolens}
+    volumes:
+      - ${DATA_ROOT:-./data}/postgres/replica1-data:/var/lib/postgresql/data
+    networks:
+      - pg-cluster
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+    # we need to specify both the user and then chown/chmod the resulting directory because the replica copies
+    # across the database files from the master with those permissions...
+    user: postgres
+    command: ["/bin/bash", "-c", "
+      until pg_isready -h postgres-master -U $${POSTGRES_USER} -d $${POSTGRES_DB}; do sleep 1; done;
+      PGPASSWORD=$${POSTGRES_PASSWORD} pg_basebackup -h postgres-master -U $${POSTGRES_USER} -D /var/lib/postgresql/data -P -R --wal-method=stream;
+      chown -R postgres:postgres /var/lib/postgresql/data; chmod -R 0700 /var/lib/postgresql/data;
+      postgres"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  postgres-replica-2:
+    image: darthveitcher/postdata
+    container_name: postgres-replica-2
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-geolens}
+    volumes:
+      - ${DATA_ROOT:-./data}/postgres/replica2-data:/var/lib/postgresql/data
+    networks:
+      - pg-cluster
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+    # we need to specify both the user and then chown/chmod the resulting directory because the replica copies
+    # across the database files from the master with those permissions...
+    user: postgres
+    command: ["/bin/bash", "-c", "
+      until pg_isready -h postgres-master -U $${POSTGRES_USER} -d $${POSTGRES_DB}; do sleep 1; done;
+      PGPASSWORD=$${POSTGRES_PASSWORD} pg_basebackup -h postgres-master -U $${POSTGRES_USER} -D /var/lib/postgresql/data -P -R --wal-method=stream;
+      chown -R postgres:postgres /var/lib/postgresql/data; chmod -R 0700 /var/lib/postgresql/data;
+      postgres"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h localhost -p 5432 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+  
+  # PGPool Load Balancer for Cluster
+  pgpool:
+    image: bitnami/pgpool:latest
+    container_name: pgpool
+    env_file: .env
+    environment:
+      PGPOOL_SR_CHECK_USER: ${POSTGRES_USER}
+      PGPOOL_SR_CHECK_PASSWORD: ${POSTGRES_PASSWORD}
+      PGPOOL_POSTGRES_USERNAME: ${POSTGRES_USER}
+      PGPOOL_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGPOOL_ADMIN_USERNAME: ${PGPOOL_ADMIN_USERNAME:-admin}
+      PGPOOL_ADMIN_PASSWORD: ${PGPOOL_ADMIN_PASSWORD:-admin123}
+      # format is number:host:port:weight:flag
+      # eg. 0:host=postgres-master:port=5432:weight=1:flag=ALLOW_TO_FAILOVER,
+      PGPOOL_BACKEND_NODES: >
+        0:postgres-master:5432:1:ALLOW_TO_FAILOVER,
+        1:postgres-replica-1:5432:1:ALLOW_TO_FAILOVER,
+        2:postgres-replica-2:5432:1:ALLOW_TO_FAILOVER,
+    ports:
+      # only listen on localhost by default (you could set to 0.0.0.0 if not using proxy)
+      # we also specify 5433 as default for POSTGRES_PORT so it doesn't clash with traefik
+      - "${POSTGRES_BIND_IP:-127.0.0.1}:${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - ${DATA_ROOT:-./data}/pgpool/pgpool-config:/opt/bitnami/pgpool/conf
+    networks:
+      - pg-cluster
+    depends_on:
+      postgres-master:
+        condition: service_healthy
+      postgres-replica-1:
+        condition: service_healthy
+      postgres-replica-2:
+        condition: service_healthy
+  
+  # Cloudbeaver as a DB Administration tool
+  cloudbeaver:
+    image: darthveitcher/cloudbeaver
+    container_name: cloudbeaver
+    hostname: db.${DOMAIN:-localhost}
+    env_file: .env
+    environment:
+      CB_SERVER_NAME: ${CB_SERVER_NAME:-GeoLens (Workbench)}
+      CB_SERVER_URL: db.${DOMAIN:-localhost}
+      CB_ADMIN_NAME: ${CB_ADMIN_NAME:-geolens}
+      CB_ADMIN_PASSWORD: ${CB_ADMIN_PASSWORD:-geolens123}
+    build:
+      context: docker/cloudbeaver
+      dockerfile: Dockerfile
+    depends_on:
+      - pgpool
+    volumes:
+      - "${CONFIG_ROOT:-./services}/cloudbeaver/data-sources.json:/opt/cloudbeaver/workspace/GlobalConfiguration/.dbeaver/data-sources.json:z"
+    ports:
+      - 8978:8978
+    networks:
+      - pg-cluster
+    extra_hosts:
+      - host.docker.internal:host-gateway  # access host's `localhost` using `host.docker.internal`

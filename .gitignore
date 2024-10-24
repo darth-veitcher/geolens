@@ -1,8 +1,3 @@
-# Initialize git repository
-git init
-
-# Add .gitignore
-cat > .gitignore << 'EOF'
 # Python
 __pycache__/
 *.py[cod]
@@ -52,5 +47,6 @@ models/
 .DS_Store
 
 # Project specific
+data/
 data/raw/
 data/processed/
