@@ -34,23 +34,8 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     CREATE EXTENSION IF NOT EXISTS age;
     CREATE EXTENSION IF NOT EXISTS btree_gist;
 
-    -- Create application role with necessary permissions
-    DO \$\$
-    BEGIN
-        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'geolens_app') THEN
-            CREATE ROLE geolens_app WITH LOGIN PASSWORD 'geolens_app_pass';
-        END IF;
-    END
-    \$\$;
-
     -- Create schemas
     CREATE SCHEMA IF NOT EXISTS geolens;
-    GRANT USAGE ON SCHEMA geolens TO geolens_app;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA geolens GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO geolens_app;
-    ALTER DEFAULT PRIVILEGES IN SCHEMA geolens GRANT USAGE, SELECT ON SEQUENCES TO geolens_app;
-
-    -- Set search path
-    ALTER ROLE geolens_app SET search_path TO geolens, public;
 
     -- Create basic tables
     CREATE TABLE IF NOT EXISTS geolens.locations (
