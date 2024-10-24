@@ -1,0 +1,33 @@
+[project]
+name = "geolens"
+version = "0.1.0"
+description = "Intelligent spatial knowledge explorer combining LLMs, vector search, and graph analysis"
+authors = [
+    { name = "darth-veitcher", email = "1722315+darth-veitcher@users.noreply.github.com" }
+]
+dependencies = [
+    "fastapi>=0.115.3",
+    "uvicorn>=0.32.0",
+    "sqlalchemy>=2.0.36",
+    "geoalchemy>=0.7.2",
+    "psycopg2-binary>=2.9.10",
+    "llama-cpp-python>=0.3.1",
+    "pydantic>=2.9.2",
+    "shapely>=2.0.6",
+    "python-dotenv>=1.0.1",
+    "asyncpg>=0.30.0",
+]
+readme = "README.md"
+requires-python = ">= 3.10"
+license = { text = "MIT" }
+
+[tool.rye]
+managed = true
+virtual = true
+dev-dependencies = [
+    "pytest>=8.3.3",
+    "black>=24.10.0",
+    "isort>=5.13.2",
+    "mypy>=1.13.0",
+    "pytest-asyncio>=0.24.0",
+]
