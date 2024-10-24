@@ -20,6 +20,7 @@ dependencies = [
     "geoalchemy2>=0.15.2",
     "pydantic-settings>=2.6.0",
     "greenlet>=3.1.1",
+    "alembic>=1.13.3",
     # use for generating embeddings
 ]
 readme = "README.md"

@@ -20,116 +20,116 @@ echo "host replication all 172.20.0.0/12 md5" >> /var/lib/postgresql/data/pg_hba
 # Reload PostgreSQL to apply the changes
 pg_ctl reload
 
-# ------------------------------------------------------------------------------
-# Now initialise the primary database
-# ------------------------------------------------------------------------------
-#!/bin/bash
-set -e
+# # ------------------------------------------------------------------------------
+# # Now initialise the primary database
+# # ------------------------------------------------------------------------------
+# #!/bin/bash
+# set -e
 
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-    -- Enable required extensions
-    CREATE EXTENSION IF NOT EXISTS postgis;
-    CREATE EXTENSION IF NOT EXISTS postgis_topology;
-    CREATE EXTENSION IF NOT EXISTS vector;
-    CREATE EXTENSION IF NOT EXISTS age;
-    CREATE EXTENSION IF NOT EXISTS btree_gist;
+# psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+#     -- Enable required extensions
+#     CREATE EXTENSION IF NOT EXISTS postgis;
+#     CREATE EXTENSION IF NOT EXISTS postgis_topology;
+#     CREATE EXTENSION IF NOT EXISTS vector;
+#     CREATE EXTENSION IF NOT EXISTS age;
+#     CREATE EXTENSION IF NOT EXISTS btree_gist;
 
-    -- Create schemas
-    CREATE SCHEMA IF NOT EXISTS geolens;
+#     -- Create schemas
+#     CREATE SCHEMA IF NOT EXISTS geolens;
 
-    -- Create basic tables
-    CREATE TABLE IF NOT EXISTS geolens.locations (
-        id BIGSERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        description TEXT,
-        location_type TEXT NOT NULL,
-        geometry geometry(Point, 4326),
-        properties JSONB DEFAULT '{}',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
+#     -- Create basic tables
+#     CREATE TABLE IF NOT EXISTS geolens.locations (
+#         id BIGSERIAL PRIMARY KEY,
+#         name TEXT NOT NULL,
+#         description TEXT,
+#         location_type TEXT NOT NULL,
+#         geometry geometry(Point, 4326),
+#         properties JSONB DEFAULT '{}',
+#         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+#         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+#     );
 
-    CREATE TABLE IF NOT EXISTS geolens.architectural_features (
-        id BIGSERIAL PRIMARY KEY,
-        location_id BIGINT REFERENCES geolens.locations(id),
-        style TEXT NOT NULL,
-        year_built INTEGER,
-        architect TEXT,
-        description TEXT,
-        embedding vector(384),
-        properties JSONB DEFAULT '{}',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
+#     CREATE TABLE IF NOT EXISTS geolens.architectural_features (
+#         id BIGSERIAL PRIMARY KEY,
+#         location_id BIGINT REFERENCES geolens.locations(id),
+#         style TEXT NOT NULL,
+#         year_built INTEGER,
+#         architect TEXT,
+#         description TEXT,
+#         embedding vector(384),
+#         properties JSONB DEFAULT '{}',
+#         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+#         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+#     );
 
-    CREATE TABLE IF NOT EXISTS geolens.historical_events (
-        id BIGSERIAL PRIMARY KEY,
-        location_id BIGINT REFERENCES geolens.locations(id),
-        event_date DATE,
-        event_type TEXT,
-        description TEXT,
-        embedding vector(384),
-        properties JSONB DEFAULT '{}',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
+#     CREATE TABLE IF NOT EXISTS geolens.historical_events (
+#         id BIGSERIAL PRIMARY KEY,
+#         location_id BIGINT REFERENCES geolens.locations(id),
+#         event_date DATE,
+#         event_type TEXT,
+#         description TEXT,
+#         embedding vector(384),
+#         properties JSONB DEFAULT '{}',
+#         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+#         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+#     );
 
-    CREATE TABLE IF NOT EXISTS geolens.relationships (
-        id BIGSERIAL PRIMARY KEY,
-        from_location_id BIGINT REFERENCES geolens.locations(id),
-        to_location_id BIGINT REFERENCES geolens.locations(id),
-        relationship_type TEXT NOT NULL,
-        strength FLOAT,
-        evidence TEXT,
-        properties JSONB DEFAULT '{}',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-    );
+#     CREATE TABLE IF NOT EXISTS geolens.relationships (
+#         id BIGSERIAL PRIMARY KEY,
+#         from_location_id BIGINT REFERENCES geolens.locations(id),
+#         to_location_id BIGINT REFERENCES geolens.locations(id),
+#         relationship_type TEXT NOT NULL,
+#         strength FLOAT,
+#         evidence TEXT,
+#         properties JSONB DEFAULT '{}',
+#         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+#         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+#     );
 
-    -- Create indexes
-    CREATE INDEX IF NOT EXISTS idx_locations_geometry ON geolens.locations USING GIST(geometry);
-    CREATE INDEX IF NOT EXISTS idx_locations_type ON geolens.locations USING btree(location_type);
+#     -- Create indexes
+#     CREATE INDEX IF NOT EXISTS idx_locations_geometry ON geolens.locations USING GIST(geometry);
+#     CREATE INDEX IF NOT EXISTS idx_locations_type ON geolens.locations USING btree(location_type);
     
-    CREATE INDEX IF NOT EXISTS idx_architectural_features_embedding 
-    ON geolens.architectural_features USING ivfflat (embedding vector_cosine_ops);
-    CREATE INDEX IF NOT EXISTS idx_architectural_features_style 
-    ON geolens.architectural_features USING btree(style);
+#     CREATE INDEX IF NOT EXISTS idx_architectural_features_embedding 
+#     ON geolens.architectural_features USING ivfflat (embedding vector_cosine_ops);
+#     CREATE INDEX IF NOT EXISTS idx_architectural_features_style 
+#     ON geolens.architectural_features USING btree(style);
     
-    CREATE INDEX IF NOT EXISTS idx_historical_events_embedding 
-    ON geolens.historical_events USING ivfflat (embedding vector_cosine_ops);
-    CREATE INDEX IF NOT EXISTS idx_historical_events_date 
-    ON geolens.historical_events USING btree(event_date);
+#     CREATE INDEX IF NOT EXISTS idx_historical_events_embedding 
+#     ON geolens.historical_events USING ivfflat (embedding vector_cosine_ops);
+#     CREATE INDEX IF NOT EXISTS idx_historical_events_date 
+#     ON geolens.historical_events USING btree(event_date);
     
-    CREATE INDEX IF NOT EXISTS idx_relationships_type 
-    ON geolens.relationships USING btree(relationship_type);
+#     CREATE INDEX IF NOT EXISTS idx_relationships_type 
+#     ON geolens.relationships USING btree(relationship_type);
     
-    -- Create update trigger function
-    CREATE OR REPLACE FUNCTION geolens.update_updated_at()
-    RETURNS TRIGGER AS \$\$
-    BEGIN
-        NEW.updated_at = CURRENT_TIMESTAMP;
-        RETURN NEW;
-    END;
-    \$\$ LANGUAGE plpgsql;
+#     -- Create update trigger function
+#     CREATE OR REPLACE FUNCTION geolens.update_updated_at()
+#     RETURNS TRIGGER AS \$\$
+#     BEGIN
+#         NEW.updated_at = CURRENT_TIMESTAMP;
+#         RETURN NEW;
+#     END;
+#     \$\$ LANGUAGE plpgsql;
 
-    -- Create triggers
-    CREATE TRIGGER update_locations_updated_at
-        BEFORE UPDATE ON geolens.locations
-        FOR EACH ROW
-        EXECUTE FUNCTION geolens.update_updated_at();
+#     -- Create triggers
+#     CREATE TRIGGER update_locations_updated_at
+#         BEFORE UPDATE ON geolens.locations
+#         FOR EACH ROW
+#         EXECUTE FUNCTION geolens.update_updated_at();
 
-    CREATE TRIGGER update_architectural_features_updated_at
-        BEFORE UPDATE ON geolens.architectural_features
-        FOR EACH ROW
-        EXECUTE FUNCTION geolens.update_updated_at();
+#     CREATE TRIGGER update_architectural_features_updated_at
+#         BEFORE UPDATE ON geolens.architectural_features
+#         FOR EACH ROW
+#         EXECUTE FUNCTION geolens.update_updated_at();
 
-    CREATE TRIGGER update_historical_events_updated_at
-        BEFORE UPDATE ON geolens.historical_events
-        FOR EACH ROW
-        EXECUTE FUNCTION geolens.update_updated_at();
+#     CREATE TRIGGER update_historical_events_updated_at
+#         BEFORE UPDATE ON geolens.historical_events
+#         FOR EACH ROW
+#         EXECUTE FUNCTION geolens.update_updated_at();
 
-    CREATE TRIGGER update_relationships_updated_at
-        BEFORE UPDATE ON geolens.relationships
-        FOR EACH ROW
-        EXECUTE FUNCTION geolens.update_updated_at();
-EOSQL
+#     CREATE TRIGGER update_relationships_updated_at
+#         BEFORE UPDATE ON geolens.relationships
+#         FOR EACH ROW
+#         EXECUTE FUNCTION geolens.update_updated_at();
+# EOSQL
