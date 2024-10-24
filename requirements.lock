@@ -4,16 +4,18 @@
 # last locked with the following flags:
 #   pre: false
 #   features: []
-#   all-features: false
+#   all-features: true
 #   with-sources: false
 #   generate-hashes: false
 #   universal: false
 
+-e file:.
 annotated-types==0.7.0
     # via pydantic
 anyio==4.6.2.post1
     # via starlette
 asyncpg==0.30.0
+    # via geolens
 certifi==2024.8.30
     # via requests
 charset-normalizer==3.4.0
@@ -23,6 +25,7 @@ click==8.1.7
 diskcache==5.6.3
     # via llama-cpp-python
 fastapi==0.115.3
+    # via geolens
 filelock==3.16.1
     # via huggingface-hub
     # via torch
@@ -31,6 +34,11 @@ fsspec==2024.10.0
     # via huggingface-hub
     # via torch
 geoalchemy==0.7.2
+    # via geolens
+geoalchemy2==0.15.2
+    # via geolens
+greenlet==3.1.1
+    # via geolens
 h11==0.14.0
     # via uvicorn
 huggingface-hub==0.26.1
@@ -46,6 +54,7 @@ jinja2==3.1.4
 joblib==1.4.2
     # via scikit-learn
 llama-cpp-python==0.3.1
+    # via geolens
 markupsafe==3.0.2
     # via jinja2
 mpmath==1.3.0
@@ -59,16 +68,24 @@ numpy==2.1.2
     # via shapely
     # via transformers
 packaging==24.1
+    # via geoalchemy2
     # via huggingface-hub
     # via transformers
 pillow==11.0.0
     # via sentence-transformers
 psycopg2-binary==2.9.10
+    # via geolens
 pydantic==2.9.2
     # via fastapi
+    # via geolens
+    # via pydantic-settings
 pydantic-core==2.23.4
     # via pydantic
+pydantic-settings==2.6.0
+    # via geolens
 python-dotenv==1.0.1
+    # via geolens
+    # via pydantic-settings
 pyyaml==6.0.2
     # via huggingface-hub
     # via transformers
@@ -85,11 +102,15 @@ scipy==1.14.1
     # via scikit-learn
     # via sentence-transformers
 sentence-transformers==3.2.1
+    # via geolens
 shapely==2.0.6
+    # via geolens
 sniffio==1.3.1
     # via anyio
 sqlalchemy==2.0.36
     # via geoalchemy
+    # via geoalchemy2
+    # via geolens
 starlette==0.41.0
     # via fastapi
 sympy==1.13.1
@@ -117,3 +138,4 @@ typing-extensions==4.12.2
 urllib3==2.2.3
     # via requests
 uvicorn==0.32.0
+    # via geolens

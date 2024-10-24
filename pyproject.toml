@@ -16,7 +16,11 @@ dependencies = [
     "shapely>=2.0.6",
     "python-dotenv>=1.0.1",
     "asyncpg>=0.30.0",
-    "sentence-transformers>=3.2.1",  # use for generating embeddings
+    "sentence-transformers>=3.2.1",
+    "geoalchemy2>=0.15.2",
+    "pydantic-settings>=2.6.0",
+    "greenlet>=3.1.1",
+    # use for generating embeddings
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -24,7 +28,6 @@ license = { text = "MIT" }
 
 [tool.rye]
 managed = true
-virtual = true
 dev-dependencies = [
     "pytest>=8.3.3",
     "black>=24.10.0",
@@ -32,3 +35,14 @@ dev-dependencies = [
     "mypy>=1.13.0",
     "pytest-asyncio>=0.24.0",
 ]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/geolens"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v"
+# Set default event loop scope for async fixtures
+asyncio_default_fixture_loop_scope = "function"
